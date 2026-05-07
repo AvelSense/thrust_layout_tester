@@ -141,7 +141,7 @@ def compute_solution(fx, fy, fz, mx, my, mz, layout,
     # Build and queue new cylinders
     new_cylinders = []
     for i, effort in enumerate(solution):
-        cyl = make_line_cylinder(motors[i], effort, directions[i], colors[i], radius=0.01)
+        cyl = make_line_cylinder(motors[i], effort, directions[i], colors[i%len(colors)], radius=0.01)
         if cyl is not None:
             geom_queue.put(("add", cyl))
             new_cylinders.append(cyl)
