@@ -1,9 +1,10 @@
 import re
 import select
 import sys
+import time
 from queue import Queue, Empty
 from threading import Thread, Event
-
+import signal
 import open3d as o3d
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -80,7 +81,7 @@ def build_layout(motors, directions):
 # ---------------------------------------------------------------------------
 
 class StdinReader(Thread):
-    PROMPT = "[Fx, Fy, Fz, Mx, My, Mz] > "
+    PROMPT = "\nDesired [Fx, Fy, Fz, Mx, My, Mz] > "
 
     def __init__(self, cmd_queue: Queue, stop_event: Event):
         super().__init__(daemon=True)
@@ -104,6 +105,7 @@ class StdinReader(Thread):
                 break
             self.cmd_queue.put(line)
             if not self.stop_event.is_set():
+                time.sleep(0.3) # Wait for calculation to end
                 sys.stdout.write(self.PROMPT)
                 sys.stdout.flush()
 
@@ -129,8 +131,8 @@ def compute_solution(fx, fy, fz, mx, my, mz, layout,
     """
     wrench = np.array([fx, fy, fz, mx, my, mz])
     solution = (layout_inv @ wrench.reshape(-1, 1)).ravel()
-    print(", ".join(f"M{i + 1} {float(v):.3f}" for i, v in enumerate(solution)))
-    print(np.round(layout@solution, 2))
+    print("Found solution: " + ", ".join(f"M{i + 1} {float(v):.3f}" for i, v in enumerate(solution)))
+    print("Actual [Fx, Fy, Fz, Mx, My, Mz]:", np.round(layout@solution, 2))
 
     # Remove previous solution's cylinders
     for cyl in previous_cylinders:
@@ -154,29 +156,25 @@ def compute_solution(fx, fy, fz, mx, my, mz, layout,
 def main():
     colors = [
         [1, 0.5, 0.5], [0.5, 1, 0.5], [0.5, 0.5, 1],
-        [0.5, 0, 0], [0, 0.5, 0], [0, 0, 0.5],
+        [0.6, 0.1, 0.1], [0.1, 0.6, 0.1], [0.1, 0.1, 0.6],
     ]
 
-    motors = [np.array([0.5, 0., 0.2]),
-              np.array([0.5, -0.3, -0.1]),
-              np.array([0.5, 0.3, -0.1]),
-              np.array([-0.5, 0., 0.2]),
-              np.array([-0.5, -0.3, -0.1]),
-              np.array([-0.5, 0.3, -0.1])]
+    # Position from the center of gravity, in meters. Any number of motors.
+    motors = [np.array([0., 0.3, 0.]), # M1
+              np.array([0., -0.3, 0.]), # M2
+              np.array([0.5, 0, 0.3]), # M3
+              np.array([0.5, 0.3, 0]), # M4
+              np.array([-0.5, 0, -0.3]), # M5
+              np.array([-0.5, -0.3, 0])] # M6
 
-    directions = [np.array([0, 30, 0])] # M1
+    # Yaw, pitch, roll, in degrees. One direction per motor.
+    directions = [np.array([0, 0, 0])] # M1
+    directions += [np.array([0, 0, 0])] # M2
+    directions += [np.array([0, 20, 0])] # M3
+    directions += [np.array([-10, -10, 0])] # M4
+    directions += [np.array([0, 20, 0])] # M5
+    directions += [np.array([-10, -10, 0])] # M6
 
-    intersection_front = np.array([1, 0., .5])
-    directions += [Rotation.align_vectors(intersection_front-motor, np.array([1,0,0]))[0]
-                  .as_euler("ZYX", degrees=True)
-                  for motor in motors[1:3]]
-
-    directions += [np.array([180, 30, 0])] # M4
-
-    intersection_front = np.array([-1, 0., .5])
-    directions += [Rotation.align_vectors(intersection_front-motor, np.array([1,0,0]))[0]
-                  .as_euler("ZYX", degrees=True)
-                  for motor in motors[4:]]
 
     # print(motors)
     # print(directions)
@@ -184,8 +182,11 @@ def main():
     layout = build_layout(motors, directions)
     layout_inv = np.linalg.pinv(layout)
 
+
     print(np.round(layout, 3), '\n\n')
-    print(np.round(layout_inv, 2), '\n\n')
+    # print(np.round(layout_inv, 2), '\n\n')
+
+    print("Rank of layout: ", np.linalg.matrix_rank(layout))
 
     geom_queue = Queue()
     cmd_queue = Queue()
@@ -242,6 +243,8 @@ def main():
                 break
             vis.update_renderer()
 
+    except KeyboardInterrupt:
+        print("Program interrupted")
     finally:
         vis.destroy_window()
         stop_event.set()
@@ -251,6 +254,7 @@ def main():
 
 
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal.default_int_handler)
     main()
 
 
@@ -277,10 +281,23 @@ if __name__ == '__main__':
     #           Rotation.from_euler('ZYX', [0, -30, 0], degrees=True)).as_euler("ZYX", degrees=True)
 
 
-
     # directions = [np.array([0., 30., 0.]),
     #               np.array([26.56505118, -14.47751219, 116.56505118]),
     #               np.array([-26.56505118, -14.47751219, -116.56505118]),
     #               np.array([0., -30., 0.]),
     #               np.array([-26.56505118, 14.47751219, 116.56505118]),
     #               np.array([26.56505118, 14.47751219, -116.56505118])]
+
+
+    # motors = [np.array([0.5, 0., 0.2]),
+    #           np.array([0.5, -0.3, -0.1]),
+    #           np.array([0.5, 0.3, -0.1]),
+    #           np.array([-0.5, 0., 0.2]),
+    #           np.array([-0.5, -0.3, -0.1]),
+    #           np.array([-0.5, 0.3, -0.1])]
+
+
+    # intersection_front = np.array([-1, 0., .5])
+    # directions += [Rotation.align_vectors(intersection_front-motor, np.array([1,0,0]))[0]
+    #               .as_euler("ZYX", degrees=True)
+    #               for motor in motors[4:]]
