@@ -1,5 +1,10 @@
 A utility script with 3D visualisation to test the output of arbitrary thrusters layout configurations.
 
+The thrusters here are assumed fixed and can generate both backwards and forward thrust:
+- Can be aerial or subsea propellers
+- No servo actuation to change the orientation
+- No unidirectional thrusters, like jet engines
+
 ## Installation
 - Clone the repository and install the requirements (`pip install -r requirements.txt`)
 
