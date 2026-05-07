@@ -171,9 +171,9 @@ def main():
     directions = [np.array([0, 0, 0])] # M1
     directions += [np.array([0, 0, 0])] # M2
     directions += [np.array([0, 20, 0])] # M3
-    directions += [np.array([-10, -10, 0])] # M4
+    directions += [np.array([-40, -30, 0])] # M4
     directions += [np.array([0, 20, 0])] # M5
-    directions += [np.array([-10, -10, 0])] # M6
+    directions += [np.array([-40, -30, 0])] # M6
 
 
     # print(motors)
@@ -196,10 +196,17 @@ def main():
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()
-    vis.get_render_option().background_color = [0.2, 0.2, 0.2]
 
     for geom in make_origin_axes():
         vis.add_geometry(geom)
+
+    vis.get_render_option().background_color = [0.2, 0.2, 0.2]
+    vc = vis.get_view_control()
+    vc.set_lookat([1.5, 0, 0])   # point the camera looks at
+    vc.set_front([-.6, 0.1, 0.2])   # camera is placed in the -X direction, looking toward X+
+    vc.set_up([0, 0, 1])       # Z is up
+    vc.set_zoom(1)            # adjust as needed
+
 
     for motor, direction, color in zip(motors, directions, colors):
         cyl = make_line_cylinder(motor, 1.0, direction, color, radius=0.002)
