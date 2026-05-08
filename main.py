@@ -58,20 +58,15 @@ def compute_unit_force_vector(yaw, pitch, roll):
     return R.apply(np.array([1.0, 0.0, 0.0]))
 
 
-def compute_unit_torque_vector(x, y, z, force_vector):
-    uf = force_vector
-    return np.array([
-        y * uf[2] - z * uf[1],
-        z * uf[0] - x * uf[2],
-        x * uf[1] - y * uf[0],
-    ])
+def compute_unit_torque_vector(position, force_vector):
+    return np.cross(position, force_vector)
 
 
 def build_layout(motors, directions):
     columns = []
     for motor, direction in zip(motors, directions):
         uf = compute_unit_force_vector(*direction)
-        ut = compute_unit_torque_vector(*motor, uf)
+        ut = compute_unit_torque_vector(motor, uf)
         columns.append(np.hstack((uf, ut)))
     return np.column_stack(columns)
 
